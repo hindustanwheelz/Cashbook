@@ -1,0 +1,5 @@
+{
+  "name": "Smart Cash Book",
+  "description": "A streamlined income and expenditure tracker designed for Indian users, featuring Google Sheets synchronization and Gemini-powered financial insights.",
+  "requestFramePermissions": []
+}
