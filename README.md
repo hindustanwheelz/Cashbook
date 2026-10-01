@@ -1,20 +1,38 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# RupeeCash - Daily Cash Book
 
-# Run and deploy your AI Studio app
+A streamlined daily cash book and income/expenditure tracker with real-time Google Sheets synchronization and financial insights.
 
-This contains everything you need to run your app locally.
+## Features
+- **Daily Cash Flow**: Track daily cash collections, expenses, and net cash balance.
+- **Auto-Sync to Google Sheets**: Seamless bidirectional sync with your Google Sheet via Google Apps Script Web App.
+- **Embedded Web App URL**: Your Google Apps Script Web App URL is embedded so any device automatically connects out of the box.
+- **Secured Vault**: Passcode-protected access (`DLYJ`).
+- **AI Financial Insights**: Financial summaries powered by the Gemini API.
 
-View your app in AI Studio: https://ai.studio/apps/drive/1THPzWOvRSWgSamOyb4nljLWQaoSvO7ZC
+## Getting Started
 
-## Run Locally
+### 1. Install Dependencies
+```bash
+npm install
+```
 
-**Prerequisites:**  Node.js
+### 2. Configure Environment (Optional)
+Copy `.env.example` to `.env.local`:
+```bash
+cp .env.example .env.local
+```
+Add your optional `GEMINI_API_KEY` for AI features. The Google Apps Script URL is already embedded in `services/sheetService.ts`.
 
+### 3. Run Development Server
+```bash
+npm run dev
+```
+Open your browser at `http://localhost:3000`.
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+### 4. Build for Production
+```bash
+npm run build
+```
+
+## Default Passcode
+- Master Vault Passcode: `DLYJ`
