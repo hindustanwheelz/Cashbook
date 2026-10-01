@@ -1,6 +1,23 @@
 
 import { Transaction } from "../types";
 
+/**
+ * ---------------------------------------------------------------------------
+ * EMBEDDED GOOGLE APPS SCRIPT WEB APP URL
+ * ---------------------------------------------------------------------------
+ * Set your deployed Google Apps Script Web App URL below.
+ * When embedded here, EVERY device (new phone, tablet, computer) accessing
+ * the web app will automatically connect and sync with your Google Sheet
+ * without needing to enter the URL in settings every time!
+ *
+ * Example:
+ * export const EMBEDDED_GOOGLE_SHEET_URL = "https://script.google.com/macros/s/AKfycb.../exec";
+ */
+export const EMBEDDED_GOOGLE_SHEET_URL: string =
+  (typeof process !== 'undefined' && process.env?.VITE_GOOGLE_SHEET_URL)
+    ? process.env.VITE_GOOGLE_SHEET_URL
+    : "https://script.google.com/macros/s/AKfycbxSoaW-qMuMXa9-xnlCFHKkotn3nQlCJrcDtVNuzmvA5TNA0_1n_OpQvj1clomy2PPNFQ/exec";
+
 const LOCAL_STORAGE_KEY = 'rupeecash_transactions';
 const SETTINGS_KEY = 'rupeecash_settings';
 
@@ -22,13 +39,35 @@ export const saveSettings = (settings: { googleSheetUrl: string }) => {
   localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
 };
 
-export const loadSettings = () => {
+export const loadSettings = (): { googleSheetUrl: string; isEmbedded: boolean } => {
   const data = localStorage.getItem(SETTINGS_KEY);
   try {
-    return data ? JSON.parse(data) : { googleSheetUrl: '' };
-  } catch {
-    return { googleSheetUrl: '' };
+    if (data) {
+      const parsed = JSON.parse(data);
+      if (parsed && typeof parsed.googleSheetUrl === 'string' && parsed.googleSheetUrl.trim()) {
+        return {
+          googleSheetUrl: parsed.googleSheetUrl.trim(),
+          isEmbedded: parsed.googleSheetUrl.trim() === EMBEDDED_GOOGLE_SHEET_URL.trim()
+        };
+      }
+    }
+  } catch (e) {
+    console.error("Settings load error", e);
   }
+
+  // Fallback to embedded URL for all new devices and sessions
+  return {
+    googleSheetUrl: EMBEDDED_GOOGLE_SHEET_URL.trim(),
+    isEmbedded: Boolean(EMBEDDED_GOOGLE_SHEET_URL.trim())
+  };
+};
+
+export const resetToEmbeddedSettings = () => {
+  localStorage.removeItem(SETTINGS_KEY);
+  return {
+    googleSheetUrl: EMBEDDED_GOOGLE_SHEET_URL.trim(),
+    isEmbedded: Boolean(EMBEDDED_GOOGLE_SHEET_URL.trim())
+  };
 };
 
 export const syncToGoogleSheet = async (url: string, transactions: Transaction[]): Promise<{success: boolean, message: string}> => {
