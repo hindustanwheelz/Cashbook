@@ -33,12 +33,23 @@ const TransactionTable: React.FC<Props> = ({ transactions, onDeleteRequest, onEd
           {[...transactions].reverse().map((t) => (
             <tr key={t.id} className="hover:bg-slate-50 transition-colors group">
               <td className="px-6 py-4 whitespace-nowrap">
-                <div className="flex flex-col">
-                  <span className={`text-[10px] font-bold uppercase ${t.type === 'INCOME' ? 'text-indigo-500' : 'text-slate-400'}`}>
-                    {t.type === 'INCOME' ? (t.incomeSource === 'NA' ? 'Income' : t.incomeSource) : 'Expense'}
-                  </span>
-                  <span className="text-xs text-slate-500">
-                    {t.paymentMode !== 'NA' ? t.paymentMode : (t.category || 'General')}
+                <div className="flex flex-col gap-1 items-start">
+                  {t.type === 'INCOME' ? (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold bg-indigo-50 text-indigo-700">
+                      {t.incomeSource === 'ALIGNMENT' && <i className="fa-solid fa-arrows-to-dot text-[10px]"></i>}
+                      {t.incomeSource === 'SALE' && <i className="fa-solid fa-cart-shopping text-[10px]"></i>}
+                      {t.incomeSource === 'OTHER' && <i className="fa-solid fa-layer-group text-[10px]"></i>}
+                      {t.incomeSource === 'ALIGNMENT' ? 'Alignment' : t.incomeSource === 'SALE' ? 'Sales' : t.incomeSource === 'OTHER' ? 'Other' : 'Income'}
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold bg-rose-50 text-rose-700">
+                      <i className="fa-solid fa-arrow-trend-down text-[10px]"></i> Expense
+                    </span>
+                  )}
+                  <span className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-500">
+                    {t.paymentMode === 'CASH' && <><i className="fa-solid fa-money-bill-wave text-emerald-600"></i> Cash</>}
+                    {t.paymentMode === 'BANK' && <><i className="fa-solid fa-building-columns text-blue-600"></i> Bank / UPI</>}
+                    {!['CASH', 'BANK'].includes(t.paymentMode) && (t.paymentMode !== 'NA' ? t.paymentMode : (t.category || 'General'))}
                   </span>
                 </div>
               </td>
