@@ -97,17 +97,42 @@ const App: React.FC = () => {
         if (t.paymentMode === 'CASH') {
           acc.totalCashCollection += t.amount;
           if (t.incomeSource === 'SALE') acc.saleCash += t.amount;
-          if (t.incomeSource === 'ALIGNMENT') acc.alignCash += t.amount;
+          else if (t.incomeSource === 'ALIGNMENT') acc.alignCash += t.amount;
+          else if (t.incomeSource === 'OTHER') acc.otherCash += t.amount;
         } else if (t.paymentMode === 'BANK') {
+          acc.totalBankCollection += t.amount;
           if (t.incomeSource === 'SALE') acc.saleBank += t.amount;
-          if (t.incomeSource === 'ALIGNMENT') acc.alignBank += t.amount;
+          else if (t.incomeSource === 'ALIGNMENT') acc.alignBank += t.amount;
+          else if (t.incomeSource === 'OTHER') acc.otherBank += t.amount;
         }
-      } else if (t.paymentMode === 'CASH') {
+      } else if (t.type === 'EXPENSE') {
         acc.totalCashExpense += t.amount;
       }
       return acc;
-    }, { totalCashCollection: 0, totalCashExpense: 0, saleCash: 0, saleBank: 0, alignCash: 0, alignBank: 0 });
+    }, { 
+      totalCashCollection: 0, 
+      totalBankCollection: 0, 
+      totalCashExpense: 0, 
+      saleCash: 0, 
+      saleBank: 0, 
+      alignCash: 0, 
+      alignBank: 0,
+      otherCash: 0,
+      otherBank: 0 
+    });
   }, [filteredTransactions]);
+
+  const cashCollectionDetails = useMemo(() => [
+    { id: 'align-cash', label: 'Alignment (Cash)', value: dailyStats.alignCash },
+    { id: 'sale-cash', label: 'Sales (Cash)', value: dailyStats.saleCash },
+    { id: 'other-cash', label: 'Other (Cash)', value: dailyStats.otherCash },
+  ].filter(d => d.value > 0), [dailyStats]);
+
+  const bankCollectionDetails = useMemo(() => [
+    { id: 'align-bank', label: 'Alignment (Bank)', value: dailyStats.alignBank },
+    { id: 'sale-bank', label: 'Sales (Bank)', value: dailyStats.saleBank },
+    { id: 'other-bank', label: 'Other (Bank)', value: dailyStats.otherBank },
+  ].filter(d => d.value > 0), [dailyStats]);
 
   const monthlyStats = useMemo(() => {
     return monthlyTransactions.reduce((acc, t) => {
@@ -178,20 +203,30 @@ const App: React.FC = () => {
 
   const handleAddTransaction = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!description || !amount) return;
+    if (!description.trim() || !amount) return;
+    const numAmount = parseFloat(amount);
+    if (isNaN(numAmount) || numAmount <= 0) {
+      showToast('Please enter a valid amount', 'error');
+      return;
+    }
     const newTransaction: Transaction = {
       id: crypto.randomUUID(),
       date: new Date(selectedDate + 'T12:00:00').toISOString(),
-      description,
-      amount: parseFloat(amount),
+      description: description.trim(),
+      amount: numAmount,
       type,
-      category: category || (type === 'INCOME' ? 'Income' : 'General'),
+      category: type === 'INCOME' 
+        ? (incomeSource === 'ALIGNMENT' ? 'Alignment' : incomeSource === 'SALE' ? 'Sales' : 'Other') 
+        : (category.trim() || 'Expense'),
       incomeSource: type === 'INCOME' ? incomeSource : 'NA',
       paymentMode: type === 'EXPENSE' ? 'CASH' : paymentMode,
     };
     const updated = [...transactions, newTransaction];
     triggerMutation(updated);
-    setDescription(''); setAmount(''); setCategory('');
+    setDescription(''); 
+    setAmount(''); 
+    setCategory('');
+    showToast(`${type === 'INCOME' ? 'Income' : 'Expense'} of ₹${numAmount} saved!`, 'success');
     setTimeout(() => fetchInsights(updated), 0);
   };
 
@@ -348,24 +383,151 @@ const App: React.FC = () => {
         </div>
       </header>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-10 items-start">
-        <StatCard label="Cash Collection (Day)" value={dailyStats.totalCashCollection} icon="fa-coins" color="indigo" />
-        <StatCard label="Cash Spends (Day)" value={dailyStats.totalCashExpense} icon="fa-receipt" color="rose" />
-        <StatCard label="Net Cash Balance" value={dailyStats.totalCashCollection - dailyStats.totalCashExpense} icon="fa-wallet" color="indigo" />
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-10 items-start">
+        <StatCard 
+          label="Cash Collection (Day)" 
+          value={dailyStats.totalCashCollection} 
+          icon="fa-coins" 
+          color="indigo" 
+          details={cashCollectionDetails}
+        />
+        <StatCard 
+          label="Bank Collection (Day)" 
+          value={dailyStats.totalBankCollection} 
+          icon="fa-building-columns" 
+          color="indigo" 
+          details={bankCollectionDetails}
+        />
+        <StatCard 
+          label="Cash Spends (Day)" 
+          value={dailyStats.totalCashExpense} 
+          icon="fa-receipt" 
+          color="rose" 
+        />
+        <StatCard 
+          label="Net Cash in Hand" 
+          value={dailyStats.totalCashCollection - dailyStats.totalCashExpense} 
+          icon="fa-wallet" 
+          color={dailyStats.totalCashCollection - dailyStats.totalCashExpense >= 0 ? "emerald" : "rose"} 
+        />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         <div className="lg:col-span-4 space-y-8">
           <div className="bg-white p-7 rounded-3xl shadow-sm border border-slate-200">
-            <h2 className="text-lg font-bold mb-8 flex items-center gap-2"><i className="fa-solid fa-circle-plus text-indigo-600"></i> New Entry</h2>
-            <form onSubmit={handleAddTransaction} className="space-y-6">
+            <h2 className="text-lg font-bold mb-6 flex items-center gap-2"><i className="fa-solid fa-circle-plus text-indigo-600"></i> New Entry</h2>
+            <form onSubmit={handleAddTransaction} className="space-y-5">
               <div className="flex p-1 bg-slate-100 rounded-xl">
-                <button type="button" onClick={() => setType('INCOME')} className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${type === 'INCOME' ? 'bg-white text-emerald-600' : 'text-slate-500'}`}>Income</button>
-                <button type="button" onClick={() => setType('EXPENSE')} className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${type === 'EXPENSE' ? 'bg-white text-rose-600' : 'text-slate-500'}`}>Expense</button>
+                <button 
+                  type="button" 
+                  onClick={() => { setType('INCOME'); setPaymentMode('CASH'); }} 
+                  className={`flex-1 py-2.5 rounded-lg text-sm font-bold transition-all ${type === 'INCOME' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                >
+                  Income
+                </button>
+                <button 
+                  type="button" 
+                  onClick={() => { setType('EXPENSE'); setPaymentMode('CASH'); }} 
+                  className={`flex-1 py-2.5 rounded-lg text-sm font-bold transition-all ${type === 'EXPENSE' ? 'bg-white text-rose-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                >
+                  Expense
+                </button>
               </div>
-              <div><label className={labelClasses}>Description</label><input type="text" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Details..." className={inputClasses} required /></div>
-              <div><label className={labelClasses}>Amount (₹)</label><input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0.00" className={inputClasses} required /></div>
-              <button type="submit" className={`w-full py-4 ${type === 'INCOME' ? 'bg-emerald-600' : 'bg-slate-900'} text-white rounded-2xl font-bold shadow-lg mt-2`}>Save {type === 'INCOME' ? 'Income' : 'Expense'}</button>
+
+              {type === 'INCOME' ? (
+                <>
+                  <div>
+                    <label className={labelClasses}>Income Source</label>
+                    <div className="relative">
+                      <select 
+                        value={incomeSource} 
+                        onChange={(e) => setIncomeSource(e.target.value as IncomeSource)} 
+                        className={inputClasses + " appearance-none cursor-pointer pr-10"}
+                      >
+                        <option value="ALIGNMENT">Alignment</option>
+                        <option value="SALE">Sales</option>
+                        <option value="OTHER">Other</option>
+                      </select>
+                      <i className="fa-solid fa-chevron-down absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none text-xs"></i>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className={labelClasses}>Payment Form</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setPaymentMode('CASH')}
+                        className={`py-2.5 px-3 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-2 ${
+                          paymentMode === 'CASH'
+                            ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                            : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                        }`}
+                      >
+                        <i className="fa-solid fa-money-bill-wave"></i> Cash
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPaymentMode('BANK')}
+                        className={`py-2.5 px-3 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-2 ${
+                          paymentMode === 'BANK'
+                            ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                            : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                        }`}
+                      >
+                        <i className="fa-solid fa-building-columns"></i> Bank
+                      </button>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div>
+                  <label className={labelClasses}>Payment Form</label>
+                  <div className="flex items-center gap-2 px-4 py-3 bg-slate-100 rounded-xl text-xs font-bold text-slate-700 border border-slate-200">
+                    <i className="fa-solid fa-money-bill-wave text-emerald-600"></i> Cash Only
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <label className={labelClasses}>Description</label>
+                <input 
+                  type="text" 
+                  value={description} 
+                  onChange={(e) => setDescription(e.target.value)} 
+                  placeholder={
+                    type === 'EXPENSE'
+                      ? 'e.g., Tea, Fuel, Spares, Rent...'
+                      : incomeSource === 'ALIGNMENT' 
+                        ? 'e.g., Wheel Alignment - Vehicle / Model' 
+                        : incomeSource === 'SALE' 
+                          ? 'e.g., Tyre / Part Sale' 
+                          : 'Details...'
+                  } 
+                  className={inputClasses} 
+                  required 
+                />
+              </div>
+
+              <div>
+                <label className={labelClasses}>Amount (₹)</label>
+                <input 
+                  type="number" 
+                  value={amount} 
+                  onChange={(e) => setAmount(e.target.value)} 
+                  placeholder="0.00" 
+                  className={inputClasses} 
+                  step="any"
+                  required 
+                />
+              </div>
+
+              <button 
+                type="submit" 
+                className={`w-full py-4 ${type === 'INCOME' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-slate-900 hover:bg-slate-800'} text-white rounded-2xl font-bold shadow-lg transition-colors mt-2`}
+              >
+                Save {type === 'INCOME' ? 'Income' : 'Expense'}
+              </button>
             </form>
           </div>
         </div>
@@ -502,6 +664,154 @@ const App: React.FC = () => {
               <button onClick={() => setDeletingId(null)} className="flex-1 py-3 bg-slate-100 rounded-xl font-bold">Cancel</button>
               <button onClick={handleDeleteConfirm} className="flex-1 py-3 bg-rose-600 text-white rounded-xl font-bold">Delete</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {editingTransaction && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" onClick={() => setEditingTransaction(null)}></div>
+          <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl relative z-10 p-7 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="font-bold text-xl text-slate-900 flex items-center gap-2">
+                <i className="fa-solid fa-pen-to-square text-indigo-600"></i> Edit Transaction
+              </h3>
+              <button onClick={() => setEditingTransaction(null)} className="text-slate-400 hover:text-slate-600 p-2">
+                <i className="fa-solid fa-xmark text-lg"></i>
+              </button>
+            </div>
+
+            <form onSubmit={handleUpdateTransaction} className="space-y-5">
+              <div className="flex p-1 bg-slate-100 rounded-xl">
+                <button 
+                  type="button" 
+                  onClick={() => setEditingTransaction(prev => prev ? { 
+                    ...prev, 
+                    type: 'INCOME', 
+                    incomeSource: prev.incomeSource === 'NA' ? 'SALE' : prev.incomeSource, 
+                    paymentMode: prev.paymentMode === 'NA' ? 'CASH' : prev.paymentMode,
+                    category: prev.incomeSource === 'ALIGNMENT' ? 'Alignment' : prev.incomeSource === 'SALE' ? 'Sales' : 'Other'
+                  } : null)} 
+                  className={`flex-1 py-2.5 rounded-lg text-sm font-bold transition-all ${editingTransaction.type === 'INCOME' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-500'}`}
+                >
+                  Income
+                </button>
+                <button 
+                  type="button" 
+                  onClick={() => setEditingTransaction(prev => prev ? { 
+                    ...prev, 
+                    type: 'EXPENSE', 
+                    paymentMode: 'CASH', 
+                    incomeSource: 'NA',
+                    category: 'Expense'
+                  } : null)} 
+                  className={`flex-1 py-2.5 rounded-lg text-sm font-bold transition-all ${editingTransaction.type === 'EXPENSE' ? 'bg-white text-rose-600 shadow-sm' : 'text-slate-500'}`}
+                >
+                  Expense
+                </button>
+              </div>
+
+              {editingTransaction.type === 'INCOME' ? (
+                <>
+                  <div>
+                    <label className={labelClasses}>Income Source</label>
+                    <div className="relative">
+                      <select 
+                        value={editingTransaction.incomeSource === 'NA' ? 'SALE' : editingTransaction.incomeSource} 
+                        onChange={(e) => {
+                          const src = e.target.value as IncomeSource;
+                          setEditingTransaction(prev => prev ? { 
+                            ...prev, 
+                            incomeSource: src,
+                            category: src === 'ALIGNMENT' ? 'Alignment' : src === 'SALE' ? 'Sales' : 'Other'
+                          } : null);
+                        }} 
+                        className={inputClasses + " appearance-none cursor-pointer pr-10"}
+                      >
+                        <option value="ALIGNMENT">Alignment</option>
+                        <option value="SALE">Sales</option>
+                        <option value="OTHER">Other</option>
+                      </select>
+                      <i className="fa-solid fa-chevron-down absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none text-xs"></i>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className={labelClasses}>Payment Form</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setEditingTransaction(prev => prev ? { ...prev, paymentMode: 'CASH' } : null)}
+                        className={`py-2.5 px-3 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-2 ${
+                          editingTransaction.paymentMode === 'CASH'
+                            ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                            : 'bg-slate-50 text-slate-700 border-slate-200'
+                        }`}
+                      >
+                        <i className="fa-solid fa-money-bill-wave"></i> Cash
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setEditingTransaction(prev => prev ? { ...prev, paymentMode: 'BANK' } : null)}
+                        className={`py-2.5 px-3 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-2 ${
+                          editingTransaction.paymentMode === 'BANK'
+                            ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                            : 'bg-slate-50 text-slate-700 border-slate-200'
+                        }`}
+                      >
+                        <i className="fa-solid fa-building-columns"></i> Bank
+                      </button>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div>
+                  <label className={labelClasses}>Payment Form</label>
+                  <div className="flex items-center gap-2 px-4 py-2.5 bg-slate-100 rounded-xl text-xs font-bold text-slate-700 border border-slate-200">
+                    <i className="fa-solid fa-money-bill-wave text-emerald-600"></i> Cash Only
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <label className={labelClasses}>Description</label>
+                <input 
+                  type="text" 
+                  value={editingTransaction.description} 
+                  onChange={(e) => setEditingTransaction(prev => prev ? { ...prev, description: e.target.value } : null)} 
+                  className={inputClasses} 
+                  required 
+                />
+              </div>
+
+              <div>
+                <label className={labelClasses}>Amount (₹)</label>
+                <input 
+                  type="number" 
+                  value={editingTransaction.amount} 
+                  onChange={(e) => setEditingTransaction(prev => prev ? { ...prev, amount: parseFloat(e.target.value) || 0 } : null)} 
+                  className={inputClasses} 
+                  step="any"
+                  required 
+                />
+              </div>
+
+              <div className="flex gap-3 pt-3">
+                <button 
+                  type="button" 
+                  onClick={() => setEditingTransaction(null)} 
+                  className="flex-1 py-3 bg-slate-100 text-slate-700 rounded-xl font-bold hover:bg-slate-200 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="submit" 
+                  className="flex-1 py-3 bg-indigo-600 text-white rounded-xl font-bold shadow-md hover:bg-indigo-700 transition-colors"
+                >
+                  Save Changes
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
